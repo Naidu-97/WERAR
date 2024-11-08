@@ -73,11 +73,26 @@
 
     function initializeAR(session) {
       console.log("Initializing AR session...");
+      
+      // Request a local reference space for AR
       session.requestReferenceSpace('local').then((refSpace) => {
         session.requestHitTestSource({ space: refSpace }).then((source) => {
           hitTestSource = source;
+
+          // Check if camera is being handled properly
+          console.log("Checking camera access...");
+
+          // Try to get the camera feed (WebXR should automatically handle it)
           session.addEventListener('select', (event) => {
             handleClick(event, refSpace);
+          });
+
+          session.addEventListener('visibilitychange', (e) => {
+            if (session.visibilityState === 'visible') {
+              console.log("AR session is now visible.");
+            } else {
+              console.log("AR session is not visible.");
+            }
           });
 
           // Start the XR rendering loop
@@ -96,10 +111,13 @@
       const pose = frame.getViewerPose(referenceSpace);
 
       if (pose) {
-        // Update camera position
+        // Update camera position from the AR session
         camera.position.set(pose.transform.position.x, pose.transform.position.y, pose.transform.position.z);
 
-        // Render the scene with the AR camera
+        // Check if the camera feed is active
+        console.log("Camera position:", camera.position);
+
+        // Render the scene with the AR camera (overlay 3D content on top of camera feed)
         renderer.render(scene, camera);
       }
 
@@ -164,3 +182,4 @@
   </script>
 </body>
 </html>
+
