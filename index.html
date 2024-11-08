@@ -22,16 +22,21 @@
 <body>
   <div id="distance">Distance: 0 meters</div>
   <script>
-    let scene, camera, renderer, xrSession, hitTestSource, points = [];
+    let scene, camera, renderer;
+    let xrSession = null;
+    let points = [];
+    let hitTestSource = null;
     const distanceText = document.getElementById('distance');
 
     async function init() {
+      // Set up the Three.js scene, camera, and renderer
       scene = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-      renderer = new THREE.WebGLRenderer({ alpha: true });
+      renderer = new THREE.WebGLRenderer({ alpha: true }); // Use alpha to handle transparency
       renderer.setSize(window.innerWidth, window.innerHeight);
       document.body.appendChild(renderer.domElement);
 
+      // Check if WebXR is available
       if (navigator.xr) {
         try {
           const supported = await navigator.xr.isSessionSupported('immersive-ar');
@@ -58,13 +63,13 @@
       try {
         const session = await navigator.xr.requestSession('immersive-ar', {
           requiredFeatures: ['local', 'hit-test'],
-          optionalFeatures: ['camera-access']
+          optionalFeatures: ['camera-access'] // Request camera access
         });
 
         xrSession = session;
         session.addEventListener('end', onSessionEnded);
 
-        // Initialize the AR session
+        // Initialize AR session and handle the camera feed
         initializeAR(session);
       } catch (error) {
         console.error('Error starting AR session:', error);
@@ -74,11 +79,12 @@
 
     function initializeAR(session) {
       console.log("Initializing AR session...");
+
       session.requestReferenceSpace('local').then((refSpace) => {
         session.requestHitTestSource({ space: refSpace }).then((source) => {
           hitTestSource = source;
 
-          // Start AR frame loop
+          // Start the frame loop
           session.requestAnimationFrame(onXRFrame);
         }).catch((error) => {
           console.error('Error requesting hit test source:', error);
@@ -94,17 +100,19 @@
       const pose = frame.getViewerPose(referenceSpace);
 
       if (pose) {
-        // Ensure the camera is set correctly based on the viewer's position
+        // Update camera position based on XR pose
         camera.position.set(pose.transform.position.x, pose.transform.position.y, pose.transform.position.z);
 
-        // Render the scene with the AR camera feed (automatically handled by WebXR)
+        // Render the scene: this will include the camera feed and any 3D objects
         renderer.render(scene, camera);
       }
 
+      // Keep requesting frames
       session.requestAnimationFrame(onXRFrame);
     }
 
     function handleClick(event, referenceSpace) {
+      // Handle click events and add markers (points)
       const hitTestResults = hitTestSource.getHitTestResults(event);
       if (hitTestResults.length > 0) {
         const hitTestResult = hitTestResults[0];
@@ -161,3 +169,4 @@
   </script>
 </body>
 </html>
+
