@@ -28,57 +28,66 @@
     const distanceText = document.getElementById('distance');
 
     async function init() {
+      // Set up the scene, camera, and renderer
       scene = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-
       renderer = new THREE.WebGLRenderer();
       renderer.setSize(window.innerWidth, window.innerHeight);
       document.body.appendChild(renderer.domElement);
 
-      // Ensure WebXR AR session is available
+      // Check for WebXR AR support and handle session requests
       if (navigator.xr) {
         navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
           if (supported) {
-            // Handle click to start AR session
+            console.log("AR supported! Ready to start AR session.");
             document.body.addEventListener('click', startARSession);
           } else {
             alert("AR is not supported on this device/browser.");
           }
+        }).catch(error => {
+          console.error("Error checking AR support:", error);
         });
       } else {
         alert("WebXR is not supported in this browser.");
       }
     }
 
-    function startARSession() {
+    async function startARSession() {
       if (xrSession) {
         console.log("AR session already active.");
         return;
       }
 
-      // Request an immersive AR session
-      navigator.xr.requestSession('immersive-ar', {
-        requiredFeatures: ['local', 'hit-test']
-      }).then((session) => {
+      // Request immersive AR session with required features
+      try {
+        const session = await navigator.xr.requestSession('immersive-ar', {
+          requiredFeatures: ['local', 'hit-test'],
+          optionalFeatures: ['camera-access']  // Add camera access as an optional feature
+        });
         xrSession = session;
         session.addEventListener('end', onSessionEnded);
         initializeAR(session);
-      }).catch((error) => {
+      } catch (error) {
         console.error('Error starting AR session:', error);
-      });
+        alert("Failed to start AR session.");
+      }
     }
 
     function initializeAR(session) {
-      // Set up the reference space and start the AR session
+      console.log("Initializing AR session...");
       session.requestReferenceSpace('local').then((refSpace) => {
         session.requestHitTestSource({ space: refSpace }).then((hitTestSource) => {
           session.addEventListener('select', (event) => {
             handleClick(event, hitTestSource, refSpace);
           });
 
-          // Animation frame loop for rendering AR
+          // Request animation frame for rendering the AR scene
           session.requestAnimationFrame(onXRFrame);
+        }).catch(error => {
+          console.error('Error requesting hit test source:', error);
         });
+      }).catch(error => {
+        console.error('Error requesting reference space:', error);
       });
     }
 
@@ -88,7 +97,8 @@
       const pose = frame.getViewerPose(referenceSpace);
 
       if (pose) {
-        renderer.render(scene, camera);  // Render the scene with camera
+        // Render the AR scene
+        renderer.render(scene, camera);
       }
 
       session.requestAnimationFrame(onXRFrame);
@@ -151,6 +161,7 @@
       requestAnimationFrame(animate);
     }
 
+    // Initialize the AR environment
     init();
     animate();
   </script>
