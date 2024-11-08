@@ -25,7 +25,6 @@
   <script>
     let camera, scene, renderer;
     let points = [];
-
     const distanceText = document.getElementById('distance');
     
     function init() {
@@ -41,14 +40,17 @@
         // Check if AR is supported
         navigator.xr.isSessionSupported('immersive-ar').then(function (supported) {
           if (supported) {
-            // Request an immersive AR session
-            navigator.xr.requestSession('immersive-ar', {
-              requiredFeatures: ['local', 'hit-test']
-            }).then(function (session) {
-              session.addEventListener('end', onSessionEnded);
-              startARSession(session);
-            }).catch(function (error) {
-              console.error('Error starting AR session:', error);
+            // Wait for user interaction to start the AR session
+            document.body.addEventListener('click', function() {
+              // Request an immersive AR session
+              navigator.xr.requestSession('immersive-ar', {
+                requiredFeatures: ['local', 'hit-test']
+              }).then(function (session) {
+                session.addEventListener('end', onSessionEnded);
+                startARSession(session);
+              }).catch(function (error) {
+                console.error('Error starting AR session:', error);
+              });
             });
           } else {
             alert("AR is not supported on this device/browser.");
