@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WebXR AR Measurement Tool</title>
+  <!-- A-Frame for AR rendering (no need for three.js explicitly) -->
+  <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/aframe-ar.js"></script>
+</head>
+<body style="margin: 0; overflow: hidden;">
+  <!-- Button to start AR session -->
+  <button id="startARButton" style="position: fixed; z-index: 10; background-color: #fff; padding: 10px;">
+    Start AR
+  </button>
+
+  <a-scene embedded arjs="sourceType: webcam; detectionMode: mono_and_matrix;">
+    <!-- Camera -->
+    <a-camera id="camera" position="0 1.6 0" raycaster="objects: .clickable"></a-camera>
+
+    <!-- Surface for placement -->
+    <a-entity id="surface" geometry="primitive: box; width: 0.5; height: 0.5; depth: 0.5"
+              material="color: #FF6347" position="0 1.6 0" visible="false"></a-entity>
+
+    <!-- Start and End Points for Measurement -->
+    <a-entity id="startPoint" geometry="primitive: sphere; radius: 0.05" material="color: blue" position="0 1.6 0" class="clickable"></a-entity>
+    <a-entity id="endPoint" geometry="primitive: sphere; radius: 0.05" material="color: red" position="0 1.6 0" class="clickable"></a-entity>
+
+  </a-scene>
+
+  <script>
+    let points = [];  // Array to store points for measurement
+    let startPoint = document.getElementById('startPoint');
+    let endPoint = document.getElementById('endPoint');
+
+    // Wait for the button to start the AR session
+    document.getElementById('startARButton').addEventListener('click', function() {
+      if (navigator.xr) {
+        navigator.xr.requestSession('immersive-ar').then(function(session) {
+          console.log('AR session started');
+          const xrRefSpace = new XRReferenceSpace('local');
+          const hitTestSource = session.requestHitTestSource({ space: xrRefSpace });
+
+          session.requestAnimationFrame(function onXRFrame(time, frame) {
+            const hitTestResults = frame.getHitTestResults(hitTestSource);
+
+            if (hitTestResults.length > 0) {
+              const hit = hitTestResults[0];
+              const position = hit.pose.transform.position;
+
+              // Move the surface box to the detected position
+              document.querySelector('#surface').setAttribute('position', {
+                x: position.x,
+                y: position.y,
+                z: position.z
+              });
+              document.querySelector('#surface').setAttribute('visible', 'true');
+            }
+          });
+
+          // Event listener for when user clicks to place points
+          startPoint.addEventListener('click', function () {
+            if (points.length < 1) {
+              // Store the position of the clicked point
+              points.push(startPoint.object3D.position.clone());
+              console.log('Start Point:', points[0]);
+            }
+          });
+
+          endPoint.addEventListener('click', function () {
+            if (points.length === 1) {
+              // Store the position of the clicked end point
+              points.push(endPoint.object3D.position.clone());
+              console.log('End Point:', points[1]);
+
+              // Calculate distance between points
+              const distance = points[0].distanceTo(points[1]);
+              alert('Measured Distance: ' + distance.toFixed(2) + ' meters');
+            }
+          });
+        }).catch(function(error) {
+          console.error('Error starting AR session:', error);
+        });
+      } else {
+        console.log('WebXR not supported');
+      }
+    });
+  </script>
+</body>
+</html>
