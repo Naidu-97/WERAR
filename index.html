@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Web AR Distance Measurement (Surface Detection)</title>
-  <script src="https://aframe.io/releases/0.9.2/aframe.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/jeromeetienne/AR.js/aframe/build/aframe-ar.js"></script>
+  <title>Web AR with WebXR</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/google-ar/three.ar.js"></script>
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { display: block; }
@@ -21,31 +21,61 @@
   </style>
 </head>
 <body>
-  <!-- AR Scene setup using A-Frame and AR.js with surface detection -->
-  <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false; trackingMethod: best;">
-    <!-- Plane detection enabled -->
-    <a-entity 
-      id="plane-detection"
-      gps-entity-place="latitude: 0; longitude: 0;"
-      arjs="sourceType: webcam; debugUIEnabled: false; trackingMethod: best; planeDetection: true; " 
-      geometry="primitive: plane; width: 10; height: 10; opacity: 0.5;"
-      position="0 0 0"
-      rotation="-90 0 0"
-      material="color: #999999; opacity: 0.5">
-    </a-entity>
-
-    <!-- Camera entity for AR view -->
-    <a-entity camera></a-entity>
-  </a-scene>
-
-  <!-- Distance text display -->
   <div id="distance">Distance: 0 meters</div>
-
   <script>
-    let points = [];  // Store clicked points
-    const distanceText = document.getElementById('distance');  // Get the div to display the distance
+    // Set up a basic Three.js scene with AR
+    let camera, scene, renderer, controller;
+    let points = [];
 
-    // Function to calculate the Euclidean distance between two points
+    const distanceText = document.getElementById('distance');
+    
+    function init() {
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+      renderer = new THREE.WebGLRenderer();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      document.body.appendChild(renderer.domElement);
+
+      // Check for WebXR availability
+      if (navigator.xr) {
+        navigator.xr.requestDevice().then(device => {
+          // Create AR session with SLAM-like tracking
+          device.requestSession({ immersive: true }).then(session => {
+            session.addEventListener('end', onSessionEnded);
+            session.updateWorldTrackingState({ autoUpdate: true });
+
+            // Setup AR tracking
+            let controller = new ARController(session);
+
+            // Event listener for clicks on detected surfaces
+            controller.addEventListener('click', function (event) {
+              // Capture click event and calculate distance between points
+              if (points.length < 2) {
+                let intersection = event.intersection;
+                if (intersection) {
+                  points.push(intersection.point);
+                  let sphere = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.05),
+                    new THREE.MeshBasicMaterial({ color: 0xff0000 })
+                  );
+                  sphere.position.set(intersection.point.x, intersection.point.y, intersection.point.z);
+                  scene.add(sphere);
+                }
+              }
+
+              if (points.length === 2) {
+                const distance = calculateDistance(points[0], points[1]);
+                distanceText.innerHTML = `Distance: ${distance.toFixed(2)} meters`;
+              }
+            });
+          });
+        });
+      } else {
+        alert("WebXR not supported on this device");
+      }
+    }
+
     function calculateDistance(p1, p2) {
       return Math.sqrt(
         Math.pow(p2.x - p1.x, 2) +
@@ -54,46 +84,13 @@
       );
     }
 
-    // Wait for the scene to load and handle click events
-    window.onload = function () {
-      let scene = document.querySelector('a-scene');
-      
-      // Listen for click events in the AR scene
-      scene.addEventListener('click', function (event) {
-        console.log("Click detected", event);
+    function animate() {
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+    }
 
-        if (points.length < 2) {
-          // Get the intersection point where the click happens
-          const intersection = event.detail.intersection;
-          if (intersection && intersection.point) {
-            console.log("Intersection point:", intersection.point);
-            
-            // Add the point to the list
-            points.push(intersection.point);
-            
-            // Add a sphere marker at the clicked point
-            let marker = document.createElement('a-sphere');
-            marker.setAttribute('radius', 0.05);
-            marker.setAttribute('position', `${intersection.point.x} ${intersection.point.y} ${intersection.point.z}`);
-            marker.setAttribute('color', 'red');
-            scene.appendChild(marker);
-          } else {
-            console.log("No intersection detected");
-          }
-        }
-        
-        // Once two points are clicked, calculate the distance
-        if (points.length === 2) {
-          const distance = calculateDistance(points[0], points[1]);
-          
-          // Display the distance on the screen
-          distanceText.innerHTML = `Distance: ${distance.toFixed(2)} meters`;
-
-          // Optionally clear points and allow new measurements
-          points = []; // Reset the points for a new measurement
-        }
-      });
-    };
+    init();
+    animate();
   </script>
 </body>
 </html>
