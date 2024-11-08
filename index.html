@@ -25,6 +25,7 @@
   <script>
     let camera, scene, renderer;
     let points = [];
+    let xrSession = null; // Track the active XR session
     const distanceText = document.getElementById('distance');
     
     function init() {
@@ -42,10 +43,17 @@
           if (supported) {
             // Wait for user interaction to start the AR session
             document.body.addEventListener('click', function() {
+              // Don't start a new session if there is already an active session
+              if (xrSession) {
+                console.log("AR session is already active.");
+                return;
+              }
+
               // Request an immersive AR session
               navigator.xr.requestSession('immersive-ar', {
                 requiredFeatures: ['local', 'hit-test']
               }).then(function (session) {
+                xrSession = session;  // Store the active session
                 session.addEventListener('end', onSessionEnded);
                 startARSession(session);
               }).catch(function (error) {
@@ -81,6 +89,7 @@
 
     function onSessionEnded() {
       console.log('AR session ended');
+      xrSession = null; // Reset the active session when it ends
     }
 
     function calculateDistance(p1, p2) {
