@@ -26,10 +26,9 @@
     const distanceText = document.getElementById('distance');
 
     async function init() {
-      // Initialize Three.js scene, camera, and renderer
       scene = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-      renderer = new THREE.WebGLRenderer({ alpha: true }); // Use alpha for transparency
+      renderer = new THREE.WebGLRenderer({ alpha: true }); // Ensure transparency
       renderer.setSize(window.innerWidth, window.innerHeight);
       document.body.appendChild(renderer.domElement);
 
@@ -62,8 +61,11 @@
           requiredFeatures: ['local', 'hit-test'],
           optionalFeatures: ['camera-access']
         });
+
         xrSession = session;
         session.addEventListener('end', onSessionEnded);
+
+        // Initialize the AR session
         initializeAR(session);
       } catch (error) {
         console.error('Error starting AR session:', error);
@@ -73,29 +75,12 @@
 
     function initializeAR(session) {
       console.log("Initializing AR session...");
-      
-      // Request a local reference space for AR
+
       session.requestReferenceSpace('local').then((refSpace) => {
         session.requestHitTestSource({ space: refSpace }).then((source) => {
           hitTestSource = source;
 
-          // Check if camera is being handled properly
-          console.log("Checking camera access...");
-
-          // Try to get the camera feed (WebXR should automatically handle it)
-          session.addEventListener('select', (event) => {
-            handleClick(event, refSpace);
-          });
-
-          session.addEventListener('visibilitychange', (e) => {
-            if (session.visibilityState === 'visible') {
-              console.log("AR session is now visible.");
-            } else {
-              console.log("AR session is not visible.");
-            }
-          });
-
-          // Start the XR rendering loop
+          // Start AR frame loop
           session.requestAnimationFrame(onXRFrame);
         }).catch((error) => {
           console.error('Error requesting hit test source:', error);
@@ -111,30 +96,27 @@
       const pose = frame.getViewerPose(referenceSpace);
 
       if (pose) {
-        // Update camera position from the AR session
+        // Move camera according to the XR viewer pose (AR position)
         camera.position.set(pose.transform.position.x, pose.transform.position.y, pose.transform.position.z);
 
-        // Check if the camera feed is active
-        console.log("Camera position:", camera.position);
-
-        // Render the scene with the AR camera (overlay 3D content on top of camera feed)
+        // Render the scene with the camera feed from WebXR
         renderer.render(scene, camera);
       }
 
       session.requestAnimationFrame(onXRFrame);
     }
 
+    // Handle click event for adding markers (points)
     function handleClick(event, referenceSpace) {
-      // Perform hit test to get position of the click in AR space
       const hitTestResults = hitTestSource.getHitTestResults(event);
       if (hitTestResults.length > 0) {
         const hitTestResult = hitTestResults[0];
         const hitPoint = hitTestResult.hitMatrix.translation;
-
         addMarker(hitPoint);
       }
     }
 
+    // Add a marker to the scene (as a 3D sphere)
     function addMarker(hitPoint) {
       if (points.length < 2) {
         const marker = new THREE.Mesh(
@@ -151,6 +133,7 @@
       }
     }
 
+    // Calculate distance between two points
     function calculateDistanceAndUpdateUI() {
       if (points.length === 2) {
         const distance = calculateDistance(points[0], points[1]);
@@ -158,6 +141,7 @@
       }
     }
 
+    // Helper to calculate Euclidean distance between two points
     function calculateDistance(p1, p2) {
       return Math.sqrt(
         Math.pow(p2.x - p1.x, 2) +
@@ -166,11 +150,13 @@
       );
     }
 
+    // Called when the session ends
     function onSessionEnded() {
       console.log('AR session ended');
       xrSession = null;
     }
 
+    // Main animation loop
     function animate() {
       renderer.render(scene, camera);
       requestAnimationFrame(animate);
@@ -182,4 +168,5 @@
   </script>
 </body>
 </html>
+
 
