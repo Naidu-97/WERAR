@@ -23,8 +23,7 @@
 <body>
   <div id="distance">Distance: 0 meters</div>
   <script>
-    // Set up a basic Three.js scene with AR
-    let camera, scene, renderer, controller;
+    let camera, scene, renderer;
     let points = [];
 
     const distanceText = document.getElementById('distance');
@@ -37,43 +36,49 @@
       renderer.setSize(window.innerWidth, window.innerHeight);
       document.body.appendChild(renderer.domElement);
 
-      // Check for WebXR availability
+      // Check for WebXR AR capabilities
       if (navigator.xr) {
-        navigator.xr.requestDevice().then(device => {
-          // Create AR session with SLAM-like tracking
-          device.requestSession({ immersive: true }).then(session => {
-            session.addEventListener('end', onSessionEnded);
-            session.updateWorldTrackingState({ autoUpdate: true });
-
-            // Setup AR tracking
-            let controller = new ARController(session);
-
-            // Event listener for clicks on detected surfaces
-            controller.addEventListener('click', function (event) {
-              // Capture click event and calculate distance between points
-              if (points.length < 2) {
-                let intersection = event.intersection;
-                if (intersection) {
-                  points.push(intersection.point);
-                  let sphere = new THREE.Mesh(
-                    new THREE.SphereGeometry(0.05),
-                    new THREE.MeshBasicMaterial({ color: 0xff0000 })
-                  );
-                  sphere.position.set(intersection.point.x, intersection.point.y, intersection.point.z);
-                  scene.add(sphere);
-                }
-              }
-
-              if (points.length === 2) {
-                const distance = calculateDistance(points[0], points[1]);
-                distanceText.innerHTML = `Distance: ${distance.toFixed(2)} meters`;
-              }
+        // Check if AR is supported
+        navigator.xr.isSessionSupported('immersive-ar').then(function (supported) {
+          if (supported) {
+            // Request an immersive AR session
+            navigator.xr.requestSession('immersive-ar', {
+              requiredFeatures: ['local', 'hit-test']
+            }).then(function (session) {
+              session.addEventListener('end', onSessionEnded);
+              startARSession(session);
+            }).catch(function (error) {
+              console.error('Error starting AR session:', error);
             });
-          });
+          } else {
+            alert("AR is not supported on this device/browser.");
+          }
         });
       } else {
-        alert("WebXR not supported on this device");
+        alert("WebXR is not supported in this browser.");
       }
+    }
+
+    function startARSession(session) {
+      // Initialize WebXR AR session
+      session.requestReferenceSpace('local').then(function (refSpace) {
+        const onXRFrame = function (time, frame) {
+          const session = frame.session;
+          const referenceSpace = session.requestReferenceSpace('local');
+          const pose = frame.getViewerPose(referenceSpace);
+          if (pose) {
+            // AR rendering and interaction logic goes here
+            renderer.render(scene, camera);
+          }
+          session.requestAnimationFrame(onXRFrame);
+        };
+
+        session.requestAnimationFrame(onXRFrame);
+      });
+    }
+
+    function onSessionEnded() {
+      console.log('AR session ended');
     }
 
     function calculateDistance(p1, p2) {
