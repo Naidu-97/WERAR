@@ -3,32 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Web AR with WebXR</title>
+  <title>Simple AR Camera Test</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { display: block; }
-    #distance {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      color: white;
-      font-size: 20px;
-      font-family: Arial, sans-serif;
-      z-index: 1000;
-    }
   </style>
 </head>
 <body>
-  <div id="distance">Distance: 0 meters</div>
   <script>
-    let scene, camera, renderer, xrSession, hitTestSource, points = [];
-    const distanceText = document.getElementById('distance');
+    let scene, camera, renderer, xrSession;
 
     async function init() {
+      // Set up Three.js scene, camera, and renderer
       scene = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-      renderer = new THREE.WebGLRenderer({ alpha: true }); // Ensure transparency
+      renderer = new THREE.WebGLRenderer({ alpha: true }); // Ensure transparency for camera feed
       renderer.setSize(window.innerWidth, window.innerHeight);
       document.body.appendChild(renderer.domElement);
 
@@ -64,8 +54,6 @@
 
         xrSession = session;
         session.addEventListener('end', onSessionEnded);
-
-        // Initialize the AR session
         initializeAR(session);
       } catch (error) {
         console.error('Error starting AR session:', error);
@@ -78,8 +66,6 @@
 
       session.requestReferenceSpace('local').then((refSpace) => {
         session.requestHitTestSource({ space: refSpace }).then((source) => {
-          hitTestSource = source;
-
           // Start AR frame loop
           session.requestAnimationFrame(onXRFrame);
         }).catch((error) => {
@@ -96,77 +82,25 @@
       const pose = frame.getViewerPose(referenceSpace);
 
       if (pose) {
-        // Move camera according to the XR viewer pose (AR position)
+        // Camera position update for AR scene
         camera.position.set(pose.transform.position.x, pose.transform.position.y, pose.transform.position.z);
 
-        // Render the scene with the camera feed from WebXR
+        // Render the scene (should show camera feed in background)
         renderer.render(scene, camera);
       }
 
       session.requestAnimationFrame(onXRFrame);
     }
 
-    // Handle click event for adding markers (points)
-    function handleClick(event, referenceSpace) {
-      const hitTestResults = hitTestSource.getHitTestResults(event);
-      if (hitTestResults.length > 0) {
-        const hitTestResult = hitTestResults[0];
-        const hitPoint = hitTestResult.hitMatrix.translation;
-        addMarker(hitPoint);
-      }
-    }
-
-    // Add a marker to the scene (as a 3D sphere)
-    function addMarker(hitPoint) {
-      if (points.length < 2) {
-        const marker = new THREE.Mesh(
-          new THREE.SphereGeometry(0.05),
-          new THREE.MeshBasicMaterial({ color: 0xff0000 })
-        );
-        marker.position.set(hitPoint.x, hitPoint.y, hitPoint.z);
-        scene.add(marker);
-        points.push(marker.position);
-
-        if (points.length === 2) {
-          calculateDistanceAndUpdateUI();
-        }
-      }
-    }
-
-    // Calculate distance between two points
-    function calculateDistanceAndUpdateUI() {
-      if (points.length === 2) {
-        const distance = calculateDistance(points[0], points[1]);
-        distanceText.innerHTML = `Distance: ${distance.toFixed(2)} meters`;
-      }
-    }
-
-    // Helper to calculate Euclidean distance between two points
-    function calculateDistance(p1, p2) {
-      return Math.sqrt(
-        Math.pow(p2.x - p1.x, 2) +
-        Math.pow(p2.y - p1.y, 2) +
-        Math.pow(p2.z - p1.z, 2)
-      );
-    }
-
-    // Called when the session ends
     function onSessionEnded() {
       console.log('AR session ended');
       xrSession = null;
     }
 
-    // Main animation loop
-    function animate() {
-      renderer.render(scene, camera);
-      requestAnimationFrame(animate);
-    }
-
-    // Initialize the AR environment
     init();
-    animate();
   </script>
 </body>
 </html>
+
 
 
