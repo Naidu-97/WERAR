@@ -1,172 +1,75 @@
+html
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Web AR with WebXR</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <style>
-    body { margin: 0; overflow: hidden; }
-    canvas { display: block; }
-    #distance {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      color: white;
-      font-size: 20px;
-      font-family: Arial, sans-serif;
-      z-index: 1000;
-    }
-  </style>
+  <title>WebAR Object Measurement</title>
 </head>
 <body>
-  <div id="distance">Distance: 0 meters</div>
+  <script src="https://cdn.jsdelivr.net/npm/three"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three/examples/js/controls/OrbitControls.js"></script>
+
   <script>
     let scene, camera, renderer;
-    let xrSession = null;
-    let points = [];
-    let hitTestSource = null;
-    const distanceText = document.getElementById('distance');
+    let startMarker, endMarker;
+    let raycaster, mouse;
+    let startPosition, endPosition;
 
-    async function init() {
-      // Set up the Three.js scene, camera, and renderer
+    function init() {
       scene = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-      renderer = new THREE.WebGLRenderer({ alpha: true }); // Use alpha to handle transparency
+      camera.position.set(0, 0, 5);
+
+      renderer = new THREE.WebGLRenderer();
       renderer.setSize(window.innerWidth, window.innerHeight);
       document.body.appendChild(renderer.domElement);
 
-      // Check if WebXR is available
-      if (navigator.xr) {
-        try {
-          const supported = await navigator.xr.isSessionSupported('immersive-ar');
-          if (supported) {
-            console.log("AR supported! Ready to start AR session.");
-            document.body.addEventListener('click', startARSession);
-          } else {
-            alert("AR is not supported on this device/browser.");
-          }
-        } catch (error) {
-          console.error("Error checking AR support:", error);
-        }
-      } else {
-        alert("WebXR is not supported in this browser.");
-      }
+      raycaster = new THREE.Raycaster();
+      mouse = new THREE.Vector2();
+      
+      startMarker = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
+      endMarker = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), new THREE.MeshBasicMaterial({ color: 0x00ff00 }));
+
+      scene.add(startMarker);
+      scene.add(endMarker);
+
+      document.addEventListener('click', onClick);
+      animate();
     }
 
-    async function startARSession() {
-      if (xrSession) {
-        console.log("AR session already active.");
-        return;
-      }
+    function onClick(event) {
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
-      try {
-        const session = await navigator.xr.requestSession('immersive-ar', {
-          requiredFeatures: ['local', 'hit-test'],
-          optionalFeatures: ['camera-access'] // Request camera access
-        });
+      raycaster.setFromCamera(mouse, camera);
 
-        xrSession = session;
-        session.addEventListener('end', onSessionEnded);
+      const intersects = raycaster.intersectObjects(scene.children);
 
-        // Initialize AR session and handle the camera feed
-        initializeAR(session);
-      } catch (error) {
-        console.error('Error starting AR session:', error);
-        alert("Failed to start AR session.");
-      }
-    }
+      if (intersects.length > 0) {
+        const position = intersects[0].point;
 
-    function initializeAR(session) {
-      console.log("Initializing AR session...");
+        if (!startPosition) {
+          startPosition = position.clone();
+          startMarker.position.copy(startPosition);
+        } else if (!endPosition) {
+          endPosition = position.clone();
+          endMarker.position.copy(endPosition);
 
-      session.requestReferenceSpace('local').then((refSpace) => {
-        session.requestHitTestSource({ space: refSpace }).then((source) => {
-          hitTestSource = source;
+          const distance = startPosition.distanceTo(endPosition);
+          console.log('Distance:', distance);
 
-          // Start the frame loop
-          session.requestAnimationFrame(onXRFrame);
-        }).catch((error) => {
-          console.error('Error requesting hit test source:', error);
-        });
-      }).catch((error) => {
-        console.error('Error requesting reference space:', error);
-      });
-    }
-
-    function onXRFrame(time, frame) {
-      const session = frame.session;
-      const referenceSpace = frame.getReferenceSpace('local');
-      const pose = frame.getViewerPose(referenceSpace);
-
-      if (pose) {
-        // Update camera position based on XR pose
-        camera.position.set(pose.transform.position.x, pose.transform.position.y, pose.transform.position.z);
-
-        // Render the scene: this will include the camera feed and any 3D objects
-        renderer.render(scene, camera);
-      }
-
-      // Keep requesting frames
-      session.requestAnimationFrame(onXRFrame);
-    }
-
-    function handleClick(event, referenceSpace) {
-      // Handle click events and add markers (points)
-      const hitTestResults = hitTestSource.getHitTestResults(event);
-      if (hitTestResults.length > 0) {
-        const hitTestResult = hitTestResults[0];
-        const hitPoint = hitTestResult.hitMatrix.translation;
-        addMarker(hitPoint);
-      }
-    }
-
-    function addMarker(hitPoint) {
-      if (points.length < 2) {
-        const marker = new THREE.Mesh(
-          new THREE.SphereGeometry(0.05),
-          new THREE.MeshBasicMaterial({ color: 0xff0000 })
-        );
-        marker.position.set(hitPoint.x, hitPoint.y, hitPoint.z);
-        scene.add(marker);
-        points.push(marker.position);
-
-        if (points.length === 2) {
-          calculateDistanceAndUpdateUI();
+          startPosition = null;
+          endPosition = null;
         }
       }
     }
 
-    function calculateDistanceAndUpdateUI() {
-      if (points.length === 2) {
-        const distance = calculateDistance(points[0], points[1]);
-        distanceText.innerHTML = `Distance: ${distance.toFixed(2)} meters`;
-      }
-    }
-
-    function calculateDistance(p1, p2) {
-      return Math.sqrt(
-        Math.pow(p2.x - p1.x, 2) +
-        Math.pow(p2.y - p1.y, 2) +
-        Math.pow(p2.z - p1.z, 2)
-      );
-    }
-
-    function onSessionEnded() {
-      console.log('AR session ended');
-      xrSession = null;
-    }
-
-    // Main animation loop
     function animate() {
-      renderer.render(scene, camera);
       requestAnimationFrame(animate);
+      renderer.render(scene, camera);
     }
 
-    // Initialize the AR environment
     init();
-    animate();
   </script>
 </body>
 </html>
-
