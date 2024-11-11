@@ -1,78 +1,105 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>WebAR Object Measurement</title>
-  <style>
-    body { margin: 0; }
-    canvas { display: block; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebAR Object Measurement</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { display: block; }
+        #distanceLabel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-size: 20px;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 5px;
+        }
+    </style>
 </head>
 <body>
-  <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
-  <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-  <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <div id="distanceLabel">Distance: N/A</div>
+    <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/webxr/VRButton.js"></script>
 
-  <script>
-    let scene, camera, renderer;
-    let startMarker, endMarker;
-    let raycaster, mouse;
-    let startPosition, endPosition;
+    <script>
+        let scene, camera, renderer;
+        let startMarker, endMarker;
+        let raycaster, mouse;
+        let startPosition, endPosition;
+        const distanceLabel = document.getElementById('distanceLabel');
 
-    function init() {
-      scene = new THREE.Scene();
-      camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-      camera.position.set(0, 0, 5);
+        async function init() {
+            // Create the scene
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 0, 5);
 
-      renderer = new THREE.WebGLRenderer();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      document.body.appendChild(renderer.domElement);
+            // Create the renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.xr.enabled = true; // Enable WebXR
+            document.body.appendChild(renderer.domElement);
 
-      raycaster = new THREE.Raycaster();
-      mouse = new THREE.Vector2();
-      
-      startMarker = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
-      endMarker = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), new THREE.MeshBasicMaterial({ color: 0x00ff00 }));
+            // Create raycaster and mouse vector
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
 
-      scene.add(startMarker);
-      scene.add(endMarker);
+            // Create start and end markers
+            startMarker = new THREE.Mesh(new THREE.SphereGeometry(0.05, 32, 32), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
+            endMarker = new THREE.Mesh(new THREE.SphereGeometry(0.05, 32, 32), new THREE.MeshBasicMaterial({ color: 0x00ff00 }));
 
-      document.addEventListener('click', onClick);
-      animate();
-    }
+            scene.add(startMarker);
+            scene.add(endMarker);
 
-    function onClick(event) {
-      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-      raycaster.setFromCamera(mouse, camera);
-
-      const intersects = raycaster.intersectObjects(scene.children);
-
-      if (intersects.length > 0) {
-        const position = intersects[0].point;
-
-        if (!startPosition) {
-          startPosition = position.clone();
-          startMarker.position.copy(startPosition);
-        } else if (!endPosition) {
-          endPosition = position.clone();
-          endMarker.position.copy(endPosition);
-
-          const distance = startPosition.distanceTo(endPosition);
-          console.log('Distance:', distance);
-
-          startPosition = null;
-          endPosition = null;
+            // Add event listener for clicks
+            document.addEventListener('click', onClick);
+            animate();
         }
-      }
-    }
 
-    function animate() {
-      requestAnimationFrame(animate);
-      renderer.render(scene, camera);
-    }
+        function onClick(event) {
+            // Convert mouse click position to normalized device coordinates
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
-    init();
-  </script>
+            // Update the raycaster
+            raycaster.setFromCamera(mouse, camera);
+
+            // Calculate objects intersecting the picking ray
+            const intersects = raycaster.intersectObjects(scene.children);
+
+            if (intersects.length > 0) {
+                const position = intersects[0].point;
+
+                if (!startPosition) {
+                    startPosition = position.clone();
+                    startMarker.position.copy(startPosition);
+                } else if (!endPosition) {
+                    endPosition = position.clone();
+                    endMarker.position.copy(endPosition);
+
+                    // Calculate and display distance
+                    const distance = startPosition.distanceTo(endPosition);
+                    distanceLabel.innerText = `Distance: ${distance.toFixed(2)} units`;
+
+                    // Reset positions for the next measurement
+                    startPosition = null;
+                    endPosition = null;
+                }
+            }
+        }
+
+        function animate() {
+            renderer.setAnimationLoop(() => {
+                renderer.render(scene, camera);
+            });
+        }
+
+        init();
+    </script>
 </body>
 </html>
