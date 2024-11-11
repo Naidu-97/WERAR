@@ -47,16 +47,17 @@
 
     <!-- Use CDN links for the required libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/examples/js/controls/OrbitControls.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/examples/js/loaders/GLTFLoader.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/examples/js/webxr/VRButton.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/examples/jsm/webxr/VRButton.js"></script>
 
     <script>
         let scene, camera, renderer;
         let startMarker, endMarker;
         let raycaster, mouse;
-        let startPosition, endPosition;
-        const distanceLabel = document.getElementById('distanceLabel');
+        let startPosition = null, endPosition = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            init();
+        });
 
         async function init() {
             // Create the scene
@@ -113,7 +114,7 @@
             // Calculate objects intersecting the picking ray
             const intersects = raycaster.intersectObjects(scene.children);
 
-            if (intersects.length > 0) {
+           if (intersects.length > 0) {
                 const position = intersects[0].point;
 
                 if (!startPosition) {
@@ -131,7 +132,7 @@
                     startPosition = null;
                     endPosition = null;
                 }
-            }
+             }
         }
 
         function resetMeasurement() {
@@ -142,8 +143,11 @@
            distanceLabel.innerText = 'Distance: N/A';
         }
 
-        // Call the init function to set everything up
-        init();
+        window.addEventListener('resize', () => {
+           camera.aspect = window.innerWidth / window.innerHeight;
+           camera.updateProjectionMatrix();
+           renderer.setSize(window.innerWidth, window.innerHeight);
+       });
     </script>
 </body>
 </html>
