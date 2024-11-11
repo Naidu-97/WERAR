@@ -1,13 +1,16 @@
-html
 <!DOCTYPE html>
 <html>
 <head>
   <title>WebAR Object Measurement</title>
+  <style>
+    body { margin: 0; }
+    canvas { display: block; }
+  </style>
 </head>
 <body>
-  <script src="https://cdn.jsdelivr.net/npm/three"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three/examples/js/loaders/GLTFLoader.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/examples/js/controls/OrbitControls.js"></script>
 
   <script>
     let scene, camera, renderer;
